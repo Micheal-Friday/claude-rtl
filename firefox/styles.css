@@ -1,0 +1,53 @@
+/* Claude RTL — Persian & Arabic support for claude.ai */
+
+/* Every rule is scoped under html[data-claude-rtl="on"], a flag the content
+   script sets only while the extension is enabled. Turning it off from the
+   popup removes the flag, so the stylesheet stops applying entirely. */
+
+/* Per-paragraph direction: each block decides its own direction from its
+   first strongly-directional character, so English and Persian paragraphs
+   can coexist in one message. */
+html[data-claude-rtl="on"] p[dir="auto"],
+html[data-claude-rtl="on"] li[dir="auto"],
+html[data-claude-rtl="on"] h1[dir="auto"],
+html[data-claude-rtl="on"] h2[dir="auto"],
+html[data-claude-rtl="on"] h3[dir="auto"],
+html[data-claude-rtl="on"] h4[dir="auto"],
+html[data-claude-rtl="on"] h5[dir="auto"],
+html[data-claude-rtl="on"] h6[dir="auto"],
+html[data-claude-rtl="on"] blockquote[dir="auto"],
+html[data-claude-rtl="on"] td[dir="auto"],
+html[data-claude-rtl="on"] th[dir="auto"] {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+/* The message composer: caret and placeholder follow typing direction. */
+html[data-claude-rtl="on"] div[contenteditable="true"][dir="auto"] {
+  unicode-bidi: plaintext;
+}
+
+/* Code must always stay left-to-right, even inside RTL paragraphs. */
+html[data-claude-rtl="on"] pre,
+html[data-claude-rtl="on"] code,
+html[data-claude-rtl="on"] kbd,
+html[data-claude-rtl="on"] samp {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: isolate;
+}
+
+/* Math (KaTeX / MathML) is an LTR island: `isolate` stops the surrounding
+   RTL line from reordering it, so "p = mg" no longer flips to "mg = p". */
+html[data-claude-rtl="on"] .katex,
+html[data-claude-rtl="on"] .katex-display,
+html[data-claude-rtl="on"] .katex-mathml,
+html[data-claude-rtl="on"] math {
+  direction: ltr !important;
+  unicode-bidi: isolate !important;
+}
+
+/* Display equations stay centred/left, not pushed to the RTL side. */
+html[data-claude-rtl="on"] .katex-display {
+  text-align: left !important;
+}

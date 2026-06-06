@@ -1,0 +1,147 @@
+/**
+ * Claude RTL — applies dir="auto" to text containers on claude.ai so that
+ * Persian/Arabic paragraphs render right-to-left automatically, per element.
+ * The browser's native bidi algorithm does the detection (first strong
+ * character), so mixed English/Persian conversations work correctly.
+ *
+ * Can be toggled on/off from the toolbar popup; the state lives in
+ * storage.local under "enabled" (default on). When turned off, every change
+ * the extension made is reverted and the page is left untouched.
+ */
+(() => {
+  "use strict";
+
+  const api = typeof browser !== "undefined" ? browser : chrome;
+
+  // Block-level text containers worth fixing, plus the ProseMirror composer.
+  const TEXT_SELECTOR = [
+    "p",
+    "li",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "blockquote",
+    "td", "th",
+    'div[contenteditable="true"]',
+  ].join(", ");
+
+  // Never touch code — it must stay LTR.
+  const SKIP_SELECTOR = "pre, code, kbd, samp";
+
+  // Math must render as a self-contained LTR island, otherwise an equation
+  // like "p = mg" gets reordered to "mg = p" when it sits inside an RTL
+  // (Persian/Arabic) line. KaTeX is what claude.ai uses; <math> is MathML.
+  const MATH_SELECTOR = ".katex, .katex-display, .katex-mathml, math";
+
+  // Attribute used to remember the element's original `dir` so we can restore
+  // it exactly when the extension is turned off.
+  const PREV_ATTR = "data-crtl-prev";
+
+  function remember(el) {
+    if (!el.hasAttribute(PREV_ATTR)) {
+      el.setAttribute(PREV_ATTR, el.getAttribute("dir") ?? "");
+    }
+  }
+
+  function applyDir(el) {
+    if (el.closest(SKIP_SELECTOR)) return;
+    if (el.getAttribute("dir") === "auto") return;
+    remember(el);
+    el.setAttribute("dir", "auto");
+  }
+
+  // Force an explicit LTR direction on math so it is never reordered by the
+  // surrounding RTL bidi context. The CSS adds `unicode-bidi: isolate`.
+  function isolateMath(el) {
+    if (el.getAttribute("dir") === "ltr") return;
+    remember(el);
+    el.setAttribute("dir", "ltr");
+  }
+
+  function process(root) {
+    if (root.nodeType !== Node.ELEMENT_NODE) return;
+    if (root.matches(TEXT_SELECTOR)) applyDir(root);
+    for (const el of root.querySelectorAll(TEXT_SELECTOR)) applyDir(el);
+    if (root.matches(MATH_SELECTOR)) isolateMath(root);
+    for (const el of root.querySelectorAll(MATH_SELECTOR)) isolateMath(el);
+  }
+
+  // Restore every element we touched back to its original state.
+  function revertAll() {
+    for (const el of document.querySelectorAll("[" + PREV_ATTR + "]")) {
+      const prev = el.getAttribute(PREV_ATTR);
+      if (prev) el.setAttribute("dir", prev);
+      else el.removeAttribute("dir");
+      el.removeAttribute(PREV_ATTR);
+    }
+  }
+
+  // Batch mutations into one pass per animation frame (Claude streams
+  // responses token by token, so mutations arrive in bursts).
+  const pending = new Set();
+  let scheduled = false;
+
+  function schedule(node) {
+    pending.add(node);
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const batch = [...pending];
+      pending.clear();
+      for (const n of batch) process(n);
+    });
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.type === "childList") {
+        for (const n of m.addedNodes) {
+          if (n.nodeType === Node.ELEMENT_NODE) schedule(n);
+          else if (n.parentElement) schedule(n.parentElement);
+        }
+      } else if (m.type === "characterData" && m.target.parentElement) {
+        schedule(m.target.parentElement);
+      }
+    }
+  });
+
+  let running = false;
+
+  function enable() {
+    if (running) return;
+    running = true;
+    // The stylesheet only applies while this flag is on <html>, so disabling
+    // also neutralises the CSS, not just the dir attributes.
+    document.documentElement.setAttribute("data-claude-rtl", "on");
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    process(document.body || document.documentElement);
+  }
+
+  function disable() {
+    if (!running) return;
+    running = false;
+    observer.disconnect();
+    pending.clear();
+    scheduled = false;
+    revertAll();
+    document.documentElement.removeAttribute("data-claude-rtl");
+  }
+
+  function setEnabled(value) {
+    if (value === false) disable();
+    else enable();
+  }
+
+  // Initial state (default on), then keep in sync with the popup toggle.
+  Promise.resolve(api.storage.local.get("enabled"))
+    .then((res) => setEnabled(res ? res.enabled : true))
+    .catch(() => enable());
+
+  api.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes.enabled) return;
+    setEnabled(changes.enabled.newValue);
+  });
+})();
