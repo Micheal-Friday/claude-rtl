@@ -1,8 +1,13 @@
 /**
- * Claude RTL — applies dir="auto" to text containers on claude.ai so that
- * Persian/Arabic paragraphs render right-to-left automatically, per element.
- * The browser's native bidi algorithm does the detection (first strong
- * character), so mixed English/Persian conversations work correctly.
+ * Claude RTL — sets an explicit dir on text containers on claude.ai so that
+ * Persian/Arabic paragraphs render right-to-left, per element.
+ *
+ * Instead of relying on dir="auto" (which decides direction from the FIRST
+ * strong character — so a Persian line that happens to start with an English
+ * word wrongly turns LTR and breaks), we look at the whole block: if it
+ * contains any Persian/Arabic letters we set dir="rtl", otherwise dir="ltr".
+ * English words embedded in an RTL line still render correctly via the
+ * browser's native bidi algorithm.
  *
  * Can be toggled on/off from the toolbar popup; the state lives in
  * storage.local under "enabled" (default on). When turned off, every change
@@ -31,6 +36,11 @@
   // (Persian/Arabic) line. KaTeX is what claude.ai uses; <math> is MathML.
   const MATH_SELECTOR = ".katex, .katex-display, .katex-mathml, math";
 
+  // Persian/Arabic (and related) letters. If a block contains any of these we
+  // treat the whole block as RTL, regardless of which word comes first.
+  const RTL_CHARS =
+    /[֐-׿؀-ۿݐ-ݿࢠ-ࣿיִ-﷿ﹰ-﻿]/;
+
   // Attribute used to remember the element's original `dir` so we can restore
   // it exactly when the extension is turned off.
   const PREV_ATTR = "data-crtl-prev";
@@ -43,9 +53,16 @@
 
   function applyDir(el) {
     if (el.closest(SKIP_SELECTOR)) return;
-    if (el.getAttribute("dir") === "auto") return;
+    // The composer follows what you type, so leave the native auto detection
+    // there; explicit rtl/ltr is only for rendered message blocks.
+    const want = el.isContentEditable
+      ? "auto"
+      : RTL_CHARS.test(el.textContent || "")
+        ? "rtl"
+        : "ltr";
+    if (el.getAttribute("dir") === want) return;
     remember(el);
-    el.setAttribute("dir", "auto");
+    el.setAttribute("dir", want);
   }
 
   // Force an explicit LTR direction on math so it is never reordered by the

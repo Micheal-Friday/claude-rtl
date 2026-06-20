@@ -1,11 +1,11 @@
 {
   "manifest_version": 2,
   "name": "Claude RTL (Persian & Arabic)",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Automatic right-to-left text direction for Persian and Arabic text on claude.ai. Keeps code blocks LTR.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "claude-rtl-persian-arabic@addons",
+      "id": "claude-rtl-persian-arabic-V2@addons",
       "strict_min_version": "109.0",
       "data_collection_permissions": {
         "required": ["none"]

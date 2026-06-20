@@ -4,21 +4,34 @@
    script sets only while the extension is enabled. Turning it off from the
    popup removes the flag, so the stylesheet stops applying entirely. */
 
-/* Per-paragraph direction: each block decides its own direction from its
-   first strongly-directional character, so English and Persian paragraphs
-   can coexist in one message. */
-html[data-claude-rtl="on"] p[dir="auto"],
-html[data-claude-rtl="on"] li[dir="auto"],
-html[data-claude-rtl="on"] h1[dir="auto"],
-html[data-claude-rtl="on"] h2[dir="auto"],
-html[data-claude-rtl="on"] h3[dir="auto"],
-html[data-claude-rtl="on"] h4[dir="auto"],
-html[data-claude-rtl="on"] h5[dir="auto"],
-html[data-claude-rtl="on"] h6[dir="auto"],
-html[data-claude-rtl="on"] blockquote[dir="auto"],
-html[data-claude-rtl="on"] td[dir="auto"],
-html[data-claude-rtl="on"] th[dir="auto"] {
-  unicode-bidi: plaintext;
+/* Per-paragraph direction: the content script sets dir="rtl" on any block that
+   contains Persian/Arabic and dir="ltr" on the rest, so a Persian line that
+   starts with an English word still flows right-to-left. text-align:start makes
+   the block hug its start edge (right for rtl, left for ltr). We deliberately
+   do NOT use unicode-bidi:plaintext here — that would ignore our explicit dir
+   and fall back to first-character detection, which is the bug we're fixing. */
+html[data-claude-rtl="on"] p[dir="rtl"],
+html[data-claude-rtl="on"] li[dir="rtl"],
+html[data-claude-rtl="on"] h1[dir="rtl"],
+html[data-claude-rtl="on"] h2[dir="rtl"],
+html[data-claude-rtl="on"] h3[dir="rtl"],
+html[data-claude-rtl="on"] h4[dir="rtl"],
+html[data-claude-rtl="on"] h5[dir="rtl"],
+html[data-claude-rtl="on"] h6[dir="rtl"],
+html[data-claude-rtl="on"] blockquote[dir="rtl"],
+html[data-claude-rtl="on"] td[dir="rtl"],
+html[data-claude-rtl="on"] th[dir="rtl"],
+html[data-claude-rtl="on"] p[dir="ltr"],
+html[data-claude-rtl="on"] li[dir="ltr"],
+html[data-claude-rtl="on"] h1[dir="ltr"],
+html[data-claude-rtl="on"] h2[dir="ltr"],
+html[data-claude-rtl="on"] h3[dir="ltr"],
+html[data-claude-rtl="on"] h4[dir="ltr"],
+html[data-claude-rtl="on"] h5[dir="ltr"],
+html[data-claude-rtl="on"] h6[dir="ltr"],
+html[data-claude-rtl="on"] blockquote[dir="ltr"],
+html[data-claude-rtl="on"] td[dir="ltr"],
+html[data-claude-rtl="on"] th[dir="ltr"] {
   text-align: start;
 }
 
